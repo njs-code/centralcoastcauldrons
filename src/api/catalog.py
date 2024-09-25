@@ -8,7 +8,7 @@ def get_catalog():
     """
     Each unique item combination must have only a single price.
     """
-
+    # testing
     return [
             {
                 "sku": "RED_POTION_0",
