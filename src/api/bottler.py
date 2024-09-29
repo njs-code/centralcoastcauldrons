@@ -62,7 +62,10 @@ def get_bottle_plan():
         result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).fetchall()
         num_green_ml = result[0].num_green_ml
         brew_num = num_green_ml // 100
-    return [
+    if brew_num == 0:
+        return [{}]
+    else:
+        return [
             {
                 "potion_type": [0, 100, 0, 0],
                 "quantity": brew_num,
