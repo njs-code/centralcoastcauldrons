@@ -11,7 +11,7 @@ def get_catalog():
     """
     # Version 1:
     # Connects to global_inventory database
-    # returns a catalog of one green potion, and the quantity frmo global_inventory 
+    # returns a catalog offering only a green potion, and the quantity from global_inventory 
     with db.engine.begin() as connection:
         result = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar()
         num_green_potions = result
@@ -19,7 +19,7 @@ def get_catalog():
     return [
             {
                 "sku": "GREEN_POTION_0",
-                "name": "Green Potion",
+                "name": "Pure Green Potion",
                 "quantity": num_green_potions,
                 "price": 50,
                 "potion_type": [0, 0, 100, 0],
