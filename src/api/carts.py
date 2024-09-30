@@ -70,7 +70,6 @@ def search_orders(
         ],
     }
 
-
 class Customer(BaseModel):
     customer_name: str
     character_class: str
@@ -131,9 +130,17 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
     payment = int(cart_checkout.payment)
     with db.engine.begin() as connection:
+        #update gold in inventory based on payment (I am assuming payment is always fair) 
         gold_inv = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
         updated_gold = gold_inv + payment
         connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {updated_gold}"))
-        num_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar()
+        # delete the client's row from cart 
         connection.execute(sqlalchemy.text(f"DELETE FROM client_carts where id = '{cart_id}'"))
-    return {"total_potions_bought": 1, "total_gold_paid": {payment}}
+        # grab cart quantity for return statement 
+        quantity = connection.execute(sqlalchemy.text(f"SELECT green FROM client_carts WHERE id = '{cart_id}'")).scalar()
+    return {"total_potions_bought": {quantity}, "total_gold_paid": {payment}}
+
+# Is it safe to say no one will return an item back from a cart?
+# if this is so, we can remove from inventory in add_item?
+# Why is shop asleep?
+# 
