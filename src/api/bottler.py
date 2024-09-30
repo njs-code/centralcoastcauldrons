@@ -63,7 +63,7 @@ def get_bottle_plan():
         num_green_ml = result[0].num_green_ml
         brew_num = num_green_ml // 100
     if brew_num == 0:
-        return [{}]
+        return []
     else:
         return [
             {

@@ -59,9 +59,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         num_green_potions = result[0].num_green_potions
         num_green_ml = result[0].num_green_ml
         if num_green_potions < 10:
-            return [
-                { }
-            ]
+            return []
         else:
             return [
                 {
