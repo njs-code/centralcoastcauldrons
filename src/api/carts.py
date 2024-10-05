@@ -92,10 +92,11 @@ def create_cart(new_cart: Customer):
     id_counter += 1
 
     with db.engine.begin() as connection:
-        # Add row to client_class table with id, name, and class
+        # Add row to carts table with id, name, and class
         client_class = new_cart.character_class
         client_name = new_cart.customer_name
-        sql_to_execute = f"INSERT INTO client_carts (id, name, class) VALUES ('{id_counter}','{client_name}','{client_class}')"
+        client_level = new_cart.level
+        sql_to_execute = f"INSERT INTO current_visitors (cart_id, name, class, level) VALUES ('{id_counter}','{client_name}','{client_class}', '{client_level}')"
         connection.execute(sqlalchemy.text(sql_to_execute))
     return {"cart_id": id_counter}
 
@@ -108,18 +109,18 @@ class CartItem(BaseModel):
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
     with db.engine.begin() as connection:
-        if item_sku == 'GREEN_POTION_0':
-            #get num green potions in inventory and cart quantity
-            num_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar()
-            quantity = cart_item.quantity
-            # if enough green potion in inventory, subtract from inventory
-            if num_green_potions >= quantity:
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions = '{num_green_potions - quantity}'"))
-                #add quantity green potions to client_carts
-                connection.execute(sqlalchemy.text(f"UPDATE client_carts SET green = '{quantity}' WHERE id = '{cart_id}'"))
-                return "OK"
-            else:
-                return "Not enough potions in inventory."
+        # check inventory quantity against requested quantity
+        inv_quantity = connection.execute(sqlalchemy.text(f"SELECT quantity FROM potions WHERE sku = '{item_sku}'")).scalar()
+        cart_quantity = cart_item.quantity
+        if inv_quantity >= cart_quantity:
+            # subtract quantity from inventory
+            connection.execute(sqlalchemy.text(f"UPDATE potions SET quantity = '{inv_quantity - cart_quantity}' WHERE sku='{item_sku}'"))
+            # insert new cart_item row with sku, cart_id, quantity 
+            sql_to_execute = f"INSERT INTO cart_items (cart_id, item_sku, quantity) VALUES ('{cart_id}','{item_sku}','{cart_quantity}')"
+            connection.execute(sqlalchemy.text(sql_to_execute))
+            return "OK"
+        else:
+            return "Not enough potions in inventory."
 
 
 class CartCheckout(BaseModel):
@@ -128,14 +129,31 @@ class CartCheckout(BaseModel):
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
-    payment = int(cart_checkout.payment)
+    #Version 2: 
+    # checks out all rows of the given cart_id
+    # determines total price from potions database (sku) * quantity
+    # updates gold in global inventory
+    # deletes rows from cart_items and current_visitors 
+    # current_visitors and cart_items will be used to update customer database
     with db.engine.begin() as connection:
-        #update gold in inventory based on payment (I am assuming payment is always fair) 
+        # select cart_item rows corresponding to cart_id
+        items = connection.execute(sqlalchemy.text(f"SELECT * FROM cart_items WHERE cart_id = {cart_id}")).fetchall()
+        total_price = 0
+        total_quantity = 0
+        # for each item, total the price
+        for cart_item in items:
+            item_sku = cart_item.item_sku 
+            quantity = cart_item.quantity
+            price = connection.execute(sqlalchemy.text(f"SELECT price FROM potions WHERE sku = '{item_sku}'")).scalar() * quantity
+            total_quantity += quantity
+            total_price += price
+
+        #update inventory gold with price 
         gold_inv = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-        updated_gold = gold_inv + payment
+        updated_gold = gold_inv + total_price
         connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {updated_gold}"))
-        # delete the client's row from cart 
-        connection.execute(sqlalchemy.text(f"DELETE FROM client_carts where id = '{cart_id}'"))
-        # grab cart quantity for return statement 
-        quantity = connection.execute(sqlalchemy.text(f"SELECT green FROM client_carts WHERE id = '{cart_id}'")).scalar()
-    return {"total_potions_bought": {quantity}, "total_gold_paid": {payment}}
+        # delete the client's row from cart_items and current_visitors
+        connection.execute(sqlalchemy.text(f"DELETE FROM cart_items WHERE cart_id = {cart_id}"))
+        connection.execute(sqlalchemy.text(f"DELETE FROM current_visitors where cart_id = {cart_id}"))
+
+    return {"total_potions_bought": {total_quantity}, "total_gold_paid": {total_price}}
