@@ -58,7 +58,7 @@ def get_bottle_plan():
     # Version 2: 
     # 1) Bottle plan first requires a list of potions to brew, with desired quantities 
     # 2) The goal quantity is the desired amount of potion - quantity already in inventory 
-    # 3) The actually quantity requested is the max potions of this type we can brew given the neccesary quantity of liquid in inventory 
+    # 3) The actually quantity requested is the max potions of this type we can brew given the quantity of liquid in inventory 
     with db.engine.begin() as connection:
         # select volumes of liquids in inventory 
         global_inventory = connection.execute(sqlalchemy.text("SELECT red, green, blue, dark FROM global_inventory")).fetchall()[0]
