@@ -53,9 +53,17 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     # finds the potion in inventory with the smallest quantity 
     # requests a barrel of this liquid 
     with db.engine.begin() as connection:
+        # find potion with least quantity 
         least_quantity_potion = connection.execute(sqlalchemy.text("SELECT * FROM potions WHERE quantity=(SELECT MIN(quantity) from potions)")).fetchall()[0]
-        color = least_quantity_potion.sku.split("_")[1].upper()
-        barrel_sku = "SMALL_" + color + "_BARREL"
+        # determine price, sku from barrels database
+        color = least_quantity_potion.sku.split("_")[1]
+        requested_barrel = connection.execute(sqlalchemy.text(f"SELECT * FROM barrels WHERE liquid_type = '{color}'")).fetchall()[0]
+        price = requested_barrel.small_price
+        barrel_sku = requested_barrel.small_sku
+        # determine gold amount 
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+        if price > gold:
+            return []
         return [
                 {
                     "sku": {barrel_sku},
