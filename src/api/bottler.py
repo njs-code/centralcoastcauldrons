@@ -41,10 +41,10 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
         
         # update inventory volumes
         global_inventory = connection.execute(sqlalchemy.text(f"SELECT * FROM global_inventory")).fetchall()[0]
-        red_inv = global_inventory.red + red_spent
-        green_inv = global_inventory.green + green_spent
-        blue_inv = global_inventory.blue + blue_spent
-        dark_inv = global_inventory.dark + dark_spent
+        red_inv = global_inventory.red - red_spent
+        green_inv = global_inventory.green - green_spent
+        blue_inv = global_inventory.blue - blue_spent
+        dark_inv = global_inventory.dark - dark_spent
         connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET red={red_inv}, green={green_inv}, blue={blue_inv}, dark={dark_inv}"))
         
     print(f"potions delievered: {potions_delivered} order_id: {order_id}")
@@ -72,7 +72,10 @@ def get_bottle_plan():
         
         # potion list to brew. 
         # Format is: {type : desired_quantity}
-        potion_list = {(100,0,0,0) : 5, (0,100,0,0) : 5, (0,0,100,0) : 5}
+        potions = connection.execute(sqlalchemy.text("SELECT types, desired_amount FROM potions")).fetchall()
+        potion_list = {}
+        for potion in potions:
+            potion_list[tuple(potion.types)] = potion.desired_amount
 
         for type, desired_amount in potion_list.items():
             # select quantity of potion already in inventory 
