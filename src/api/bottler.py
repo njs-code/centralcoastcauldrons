@@ -109,7 +109,7 @@ def get_bottle_plan():
             #otherwise add to plan
             request = {
                 "potion_type": type,
-                "quantity": final_quantity,
+                "quantity": f"{final_quantity}",
             }
             plan.append(request)
         return plan
