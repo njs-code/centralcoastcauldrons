@@ -156,4 +156,5 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         connection.execute(sqlalchemy.text(f"DELETE FROM cart_items WHERE cart_id = {cart_id}"))
         connection.execute(sqlalchemy.text(f"DELETE FROM current_visitors where cart_id = {cart_id}"))
 
-    return {"total_potions_bought": {total_quantity}, "total_gold_paid": {total_price}}
+    return {"total_potions_bought": total_quantity, "total_gold_paid": 
+            total_price}
