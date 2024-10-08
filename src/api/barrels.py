@@ -71,7 +71,8 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         least_quantity_potion = connection.execute(sqlalchemy.text("SELECT * FROM potions WHERE quantity=(SELECT MIN(quantity) from potions)")).fetchall()[0].types
         # select matching barrel type which we can afford
         gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-        requested_barrels = connection.execute(sqlalchemy.text(f"SELECT * FROM barrels WHERE type = array{least_quantity_potion} AND price <= {gold}")).fetchall()
+        requested_barrels = connection.execute(sqlalchemy.text(f"SELECT * FROM barrels WHERE type = array{least_quantity_potion} AND price <= {gold} ORDER BY volume DESC")).fetchall()
+        print(requested_barrels)
         if len(requested_barrels) == 0:
             return []
         else:
