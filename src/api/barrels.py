@@ -48,23 +48,36 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 @router.post("/plan")
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
-    print(wholesale_catalog)
-    # Version 2:
+    print(wholesale_catalog)        
+    # Version 2.5:
+    # stores catalog in barrels database
     # finds the potion in inventory with the smallest quantity 
-    # requests a barrel of this liquid 
+    # requests whichever barrel of this liquid it can afford
     with db.engine.begin() as connection:
-        # find potion with least quantity 
-        least_quantity_potion = connection.execute(sqlalchemy.text("SELECT * FROM potions WHERE quantity=(SELECT MIN(quantity) from potions)")).fetchall()[0]
-        # determine price, sku from barrels database
-        color = least_quantity_potion.sku.split("_")[1]
-        requested_barrel = connection.execute(sqlalchemy.text(f"SELECT * FROM barrels WHERE liquid_type = '{color}'")).fetchall()[0]
-        price = requested_barrel.small_price
-        barrel_sku = requested_barrel.small_sku
-        # determine gold amount 
+        connection.execute(sqlalchemy.text("DELETE FROM barrels"))
+
+        for barrel in wholesale_catalog:
+            sku = barrel.sku
+            volume = barrel.ml_per_barrel
+            type = barrel.potion_type
+            for i in range(0, 4):
+                type[i] = type[i] * 100
+            price = barrel.price
+            quantity = barrel.quantity
+            sql_command = f"INSERT INTO barrels (sku, volume, type, price, quantity) VALUES ('{sku}',{volume},array{type}, {price}, {quantity})"
+            connection.execute(sqlalchemy.text(sql_command))
+        # find potion type with least quantity 
+        # < ---- change this to return top two types?
+        least_quantity_potion = connection.execute(sqlalchemy.text("SELECT * FROM potions WHERE quantity=(SELECT MIN(quantity) from potions)")).fetchall()[0].types
+        # select matching barrel type which we can afford
         gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-        if price > gold:
+        requested_barrels = connection.execute(sqlalchemy.text(f"SELECT * FROM barrels WHERE type = array{least_quantity_potion} AND price <= {gold}")).fetchall()
+        if len(requested_barrels) == 0:
             return []
-        return [
+        else:
+            price = requested_barrels[0].price
+            barrel_sku = requested_barrels[0].sku
+            return [
                 {
                     "sku": f"{barrel_sku}",
                     "quantity": 1,
