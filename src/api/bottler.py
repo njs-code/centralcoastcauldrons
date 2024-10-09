@@ -115,6 +115,8 @@ def get_bottle_plan():
                 "quantity": f"{final_quantity}",
             }
             plan.append(request)
+        print("Bottle Plan Request: ")
+        print(plan)
         return plan
 
 if __name__ == "__main__":
