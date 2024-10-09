@@ -14,10 +14,9 @@ def get_catalog():
     # post a set number of each?
     catalog = []
     with db.engine.begin() as connection:
-        potion_list = [(100,0,0,0), (0,100,0,0)]
-        for type in potion_list:
+        potion_list = connection.execute(sqlalchemy.text(f"SELECT * FROM potions")).fetchall()
+        for potion in potion_list:
             # select quantity of potion already in inventory 
-            potion = connection.execute(sqlalchemy.text(f"SELECT * FROM potions WHERE types=array{list(type)}")).fetchall()[0]
             if potion.quantity < 1:
                 continue
             listing = {
