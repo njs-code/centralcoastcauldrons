@@ -78,10 +78,13 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         else:
             price = requested_barrels[0].price
             barrel_sku = requested_barrels[0].sku
-            return [
+            request = [
                 {
                     "sku": f"{barrel_sku}",
                     "quantity": 1,
                 }
             ]
+            print("Barrels ordered: ")
+            print(request)
+            return request
 
