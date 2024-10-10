@@ -49,13 +49,17 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
     print(wholesale_catalog)        
-    # Version 2.5:
+    # Version 2.5.1:
     # stores catalog in barrels database
-    # finds the potion in inventory with the smallest quantity 
-    # requests whichever barrel of this liquid it can afford
-    with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text("DELETE FROM barrels"))
+    # filters unaffordable barrels, sorts by volume desc
+    # until budget is exhausted, it will buy barrels of largest colume
+    # will only purchase 1 at a time, this is to attempt getting a diversity of barrel types
 
+    with db.engine.begin() as connection:
+        # clear barrels database
+        connection.execute(sqlalchemy.text("DELETE FROM barrels"))
+        budget = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+        #populate barrels with catalog
         for barrel in wholesale_catalog:
             sku = barrel.sku
             volume = barrel.ml_per_barrel
@@ -66,24 +70,22 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             quantity = barrel.quantity
             sql_command = f"INSERT INTO barrels (sku, volume, type, price, quantity) VALUES ('{sku}',{volume},array{type}, {price}, {quantity})"
             connection.execute(sqlalchemy.text(sql_command))
-        # find potion type with least quantity 
-        # < ---- change this to return top two types?
-        least_quantity_potion = connection.execute(sqlalchemy.text("SELECT * FROM potions WHERE quantity=(SELECT MIN(quantity) from potions)")).fetchall()[0].types
-        # select matching barrel type which we can afford
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-        requested_barrels = connection.execute(sqlalchemy.text(f"SELECT * FROM barrels WHERE type = array{least_quantity_potion} AND price <= {gold} ORDER BY volume DESC")).fetchall()
-        print(requested_barrels)
-        if len(requested_barrels) == 0:
+        # select largest volume barrel type which we can afford
+        affordable_barrels = connection.execute(sqlalchemy.text(f"SELECT * FROM barrels WHERE price <= {budget} ORDER BY volume DESC")).fetchall()
+        print(affordable_barrels)
+        request = []
+        for barrel in affordable_barrels:
+            if budget - barrel.price < 0:
+                pass
+            elif budget - barrel.price >= 0:
+                request.append({
+                    "sku": f"{barrel.sku}",
+                    "quantity":1 
+                })
+                budget -= barrel.price
+        if len(request) == 0:
             return []
         else:
-            price = requested_barrels[0].price
-            barrel_sku = requested_barrels[0].sku
-            request = [
-                {
-                    "sku": f"{barrel_sku}",
-                    "quantity": 1,
-                }
-            ]
             print("Barrels ordered: ")
             print(request)
             return request
