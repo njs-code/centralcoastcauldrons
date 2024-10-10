@@ -4,7 +4,6 @@ from src.api import auth
 import sqlalchemy
 from src import database as db
 
-
 router = APIRouter(
     prefix="/barrels",
     tags=["barrels"],
@@ -53,7 +52,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     # stores catalog in barrels database
     # filters unaffordable barrels, sorts by volume desc
     # until budget is exhausted, it will buy barrels of largest colume
-    # will only purchase 1 at a time, this is to attempt getting a diversity of barrel types
+    # will only purchase 1 of each type+size, this is to attempt getting a diversity of barrel types
 
     with db.engine.begin() as connection:
         # clear barrels database

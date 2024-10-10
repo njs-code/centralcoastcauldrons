@@ -4,6 +4,7 @@ from src.api import auth
 from enum import Enum
 import sqlalchemy
 from src import database as db
+from src.api import info
 
 id_counter = 0
 
@@ -80,6 +81,9 @@ def post_visits(visit_id: int, customers: list[Customer]):
     """
     Which customers visited the shop today?
     """
+    day = info.current_day()
+    print("CURRENT DAY: ")
+    print(day)
     print(customers)
 
     return "OK"
