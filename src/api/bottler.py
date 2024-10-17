@@ -24,34 +24,33 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
     # for each potion:
     #   subtract volume spent from global inventory
     #   update number of potion in potions 
-    with db.engine.begin() as connection:
-        red_spent = green_spent = blue_spent = dark_spent = 0
+    if (orders.validate_order(order_id)) == False:
+        with db.engine.begin() as connection:
+            red_spent = green_spent = blue_spent = dark_spent = 0
 
-        for potion in potions_delivered:
-            #calculate ml used of each liquid
-            red_spent += potion.potion_type[0] * potion.quantity 
-            green_spent += potion.potion_type[1] * potion.quantity 
-            blue_spent += potion.potion_type[2] * potion.quantity 
-            dark_spent += potion.potion_type[3] * potion.quantity 
+            for potion in potions_delivered:
+                #calculate ml used of each liquid
+                red_spent += potion.potion_type[0] * potion.quantity 
+                green_spent += potion.potion_type[1] * potion.quantity 
+                blue_spent += potion.potion_type[2] * potion.quantity 
+                dark_spent += potion.potion_type[3] * potion.quantity 
 
-            #update number of potion in inventory 
-            type = potion.potion_type
-            num_potions_inv = connection.execute(sqlalchemy.text(f"SELECT quantity FROM potions WHERE types = array{type}")).scalar()
-            update_quantity = num_potions_inv + potion.quantity
-            sql_to_execute = f"UPDATE potions SET quantity = '{update_quantity}' WHERE types=array{type}"
-            connection.execute(sqlalchemy.text(sql_to_execute))
+                #update number of potion in inventory 
+                type = potion.potion_type
+                num_potions_inv = connection.execute(sqlalchemy.text(f"SELECT quantity FROM potions WHERE types = array{type}")).scalar()
+                update_quantity = num_potions_inv + potion.quantity
+                sql_to_execute = f"UPDATE potions SET quantity = '{update_quantity}' WHERE types=array{type}"
+                connection.execute(sqlalchemy.text(sql_to_execute))
+            # update inventory volumes
+            global_inventory = connection.execute(sqlalchemy.text(f"SELECT * FROM global_inventory")).fetchall()[0]
+            red_inv = global_inventory.red - red_spent
+            green_inv = global_inventory.green - green_spent
+            blue_inv = global_inventory.blue - blue_spent
+            dark_inv = global_inventory.dark - dark_spent
+            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET red={red_inv}, green={green_inv}, blue={blue_inv}, dark={dark_inv}"))
         orders.post_order(variety="Bottles",gold_change=0,order_id=order_id,quantity=update_quantity)
-
-        # update inventory volumes
-        global_inventory = connection.execute(sqlalchemy.text(f"SELECT * FROM global_inventory")).fetchall()[0]
-        red_inv = global_inventory.red - red_spent
-        green_inv = global_inventory.green - green_spent
-        blue_inv = global_inventory.blue - blue_spent
-        dark_inv = global_inventory.dark - dark_spent
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET red={red_inv}, green={green_inv}, blue={blue_inv}, dark={dark_inv}"))
-        
-    print(f"potions delievered: {potions_delivered} order_id: {order_id}")
-    return "OK"
+        print(f"potions delievered: {potions_delivered} order_id: {order_id}")
+        return "OK"
 
 @router.post("/plan")
 def get_bottle_plan():

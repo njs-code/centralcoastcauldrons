@@ -140,30 +140,30 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     # updates gold in global inventory
     # deletes rows from cart_items and current_visitors 
     # current_visitors and cart_items will be used to update customer database
-    with db.engine.begin() as connection:
-        # select cart_item rows corresponding to cart_id
-        items = connection.execute(sqlalchemy.text(f"SELECT * FROM cart_items WHERE cart_id = {cart_id}")).fetchall()
-        total_price = 0
-        total_quantity = 0
-        # for each item, total the price
-        for cart_item in items:
-            item_sku = cart_item.item_sku 
-            quantity = cart_item.quantity
-            price = connection.execute(sqlalchemy.text(f"SELECT price FROM potions WHERE sku = '{item_sku}'")).scalar() * quantity
-            total_quantity += quantity
-            total_price += price
+    if (orders.validate_order(cart_id)) == False:
+        with db.engine.begin() as connection:
+            # select cart_item rows corresponding to cart_id
+            items = connection.execute(sqlalchemy.text(f"SELECT * FROM cart_items WHERE cart_id = {cart_id}")).fetchall()
+            total_price = 0
+            total_quantity = 0
+            # for each item, total the price
+            for cart_item in items:
+                item_sku = cart_item.item_sku 
+                quantity = cart_item.quantity
+                price = connection.execute(sqlalchemy.text(f"SELECT price FROM potions WHERE sku = '{item_sku}'")).scalar() * quantity
+                total_quantity += quantity
+                total_price += price
 
+            #update inventory gold with price 
+            gold_inv = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+            updated_gold = gold_inv + total_price
+            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {updated_gold}"))
+            # delete the client's row from cart_items and current_visitors
+            connection.execute(sqlalchemy.text(f"DELETE FROM cart_items WHERE cart_id = {cart_id}"))
+            connection.execute(sqlalchemy.text(f"DELETE FROM current_visitors where cart_id = {cart_id}"))
+
+        return_statement = {"total_potions_bought": total_quantity, "total_gold_paid": 
+                total_price}
+        print(return_statement)
         orders.post_order(variety="Checkout",gold_change=total_price,order_id=cart_id,quantity=total_quantity)
-
-        #update inventory gold with price 
-        gold_inv = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-        updated_gold = gold_inv + total_price
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {updated_gold}"))
-        # delete the client's row from cart_items and current_visitors
-        connection.execute(sqlalchemy.text(f"DELETE FROM cart_items WHERE cart_id = {cart_id}"))
-        connection.execute(sqlalchemy.text(f"DELETE FROM current_visitors where cart_id = {cart_id}"))
-
-    return_statement = {"total_potions_bought": total_quantity, "total_gold_paid": 
-            total_price}
-    print(return_statement)
-    return return_statement
+        return return_statement
