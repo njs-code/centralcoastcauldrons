@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
 from src import database as db
+from src import orders 
+
 
 router = APIRouter(
     prefix="/bottler",
@@ -38,7 +40,8 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             update_quantity = num_potions_inv + potion.quantity
             sql_to_execute = f"UPDATE potions SET quantity = '{update_quantity}' WHERE types=array{type}"
             connection.execute(sqlalchemy.text(sql_to_execute))
-        
+        orders.post_order(variety="Bottles",gold_change=0,order_id=order_id,quantity=update_quantity)
+
         # update inventory volumes
         global_inventory = connection.execute(sqlalchemy.text(f"SELECT * FROM global_inventory")).fetchall()[0]
         red_inv = global_inventory.red - red_spent

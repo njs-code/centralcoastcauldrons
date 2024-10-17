@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
 from src import database as db
+from src import orders 
 
 router = APIRouter(
     prefix="/barrels",
@@ -24,7 +25,9 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     #Uses sku, volume, and quantity to update global inventory for each barrel
     total_price = 0
     with db.engine.begin() as connection:
+        total_quantity=0
         for barrel in barrels_delivered:
+            total_quantity += barrel.quantity
             #determine color from SKU
             color = barrel.sku.split("_")[1].lower()
             #determine volume 
@@ -36,6 +39,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
             connection.execute(sqlalchemy.text(sql_to_execute))
             #keep track of price
             total_price += barrel.price
+        orders.post_order(variety="Barrel", gold_change=-(total_price),order_id=order_id,quantity=total_quantity)
         #update global_inventory gold based on price 
         inv_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
         sql_to_execute = f"UPDATE global_inventory SET gold = '{inv_gold - total_price}'"

@@ -4,6 +4,7 @@ from src.api import auth
 from enum import Enum
 import sqlalchemy
 from src import database as db
+from src import orders 
 from src.api import info
 
 id_counter = 0
@@ -151,6 +152,8 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             price = connection.execute(sqlalchemy.text(f"SELECT price FROM potions WHERE sku = '{item_sku}'")).scalar() * quantity
             total_quantity += quantity
             total_price += price
+
+        orders.post_order(variety="Checkout",gold_change=total_price,order_id=cart_id,quantity=total_quantity)
 
         #update inventory gold with price 
         gold_inv = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
