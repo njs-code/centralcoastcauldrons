@@ -24,7 +24,7 @@ def reset():
         connection.execute(sqlalchemy.text("UPDATE potions SET quantity = 0, num_sold=0"))
         #clear all cart rows, if any
         connection.execute(sqlalchemy.text(f"TRUNCATE TABLE cart_items"))
-        #connection.execute(sqlalchemy.text(f"TRUNCATE TABLE orders"))
+        connection.execute(sqlalchemy.text(f"TRUNCATE TABLE orders"))
         connection.execute(sqlalchemy.text(f"INSERT INTO orders (variety, order_id, gold_change, quantity) VALUES ('Purge',000,100,0)"))
         
         #reset cart counter to 1
