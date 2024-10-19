@@ -6,6 +6,7 @@ import sqlalchemy
 from src import database as db
 from src import orders 
 from src.api import info
+from src import customers
 
 router = APIRouter(
     prefix="/carts",
@@ -97,7 +98,7 @@ def create_cart(new_cart: Customer):
         client_class = new_cart.character_class
         client_name = new_cart.customer_name
         client_level = new_cart.level
-        sql_to_execute = f"INSERT INTO carts (name, class, level) VALUES ('{client_name}','{client_class}', '{client_level}') RETURNING cart_id"
+        sql_to_execute = f"INSERT INTO carts (name, character_class, level) VALUES ('{client_name}','{client_class}', '{client_level}') RETURNING cart_id"
         cart_id = connection.execute(sqlalchemy.text(sql_to_execute)).scalar_one()
     return {"cart_id": cart_id}
 
@@ -154,6 +155,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             gold_inv = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
             updated_gold = gold_inv + total_price
             connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {updated_gold}"))
+            customers.log_checkout(cart_id)
             # delete the client's row from cart_items and carts
             connection.execute(sqlalchemy.text(f"DELETE FROM cart_items WHERE cart_id = {cart_id}"))
             connection.execute(sqlalchemy.text(f"DELETE FROM carts where cart_id = {cart_id}"))
