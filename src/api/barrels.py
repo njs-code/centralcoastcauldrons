@@ -4,6 +4,7 @@ from src.api import auth
 import sqlalchemy
 from src import database as db
 from src import orders 
+from src import planner
 
 router = APIRouter(
     prefix="/barrels",
@@ -54,45 +55,12 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 @router.post("/plan")
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
-    print(wholesale_catalog)        
-    # Version 2.5.1:
-    # stores catalog in barrels database
-    # filters unaffordable barrels, sorts by volume desc
-    # until budget is exhausted, it will buy barrels of largest colume
-    # will only purchase 1 of each type+size, this is to attempt getting a diversity of barrel types
-
-    with db.engine.begin() as connection:
-        # clear barrels database
-        connection.execute(sqlalchemy.text("DELETE FROM barrels"))
-        budget = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-        #populate barrels with catalog
-        for barrel in wholesale_catalog:
-            sku = barrel.sku
-            volume = barrel.ml_per_barrel
-            type = barrel.potion_type
-            for i in range(0, 4):
-                type[i] = type[i] * 100
-            price = barrel.price
-            quantity = barrel.quantity
-            sql_command = f"INSERT INTO barrels (sku, volume, type, price, quantity) VALUES ('{sku}',{volume},array{type}, {price}, {quantity})"
-            connection.execute(sqlalchemy.text(sql_command))
-        # select largest volume barrel type which we can afford
-        affordable_barrels = connection.execute(sqlalchemy.text(f"SELECT * FROM barrels WHERE price <= {budget} ORDER BY volume DESC")).fetchall()
-        print(affordable_barrels)
-        request = []
-        for barrel in affordable_barrels:
-            if budget - barrel.price < 0:
-                pass
-            elif budget - barrel.price >= 0:
-                request.append({
-                    "sku": f"{barrel.sku}",
-                    "quantity":1 
-                })
-                budget -= barrel.price
-        if len(request) == 0:
-            return []
-        else:
-            print("Barrels ordered: ")
-            print(request)
-            return request
+    #Version 3:
+    # load catalog to database 
+    # filters unaffordable barrels, sorts by largest available volume
+    # until budget is exhausted, it will buy barrels of largest volume
+    print(wholesale_catalog)    
+    planner.load_barrel_catalog(wholesale_catalog)    
+    request = planner.get_barrel_plan()
+    return request
 

@@ -29,6 +29,22 @@ def get_inv_volume():
                 FROM global_inventory"""
                 )).scalar_one()
     
+def get_liquid_vol(color):
+        with engine.begin() as connection:
+            inv = connection.execute(
+                sqlalchemy.text(
+                    """SELECT *
+                    FROM global_inventory"""
+                    )).fetchall()[0]
+            if color == "red":
+                return inv.red
+            elif color == "green":
+                return inv.green
+            elif color == "blue":
+                return inv.blue
+            elif color == "dark":
+                return inv.dark
+
 def get_gold():
     with engine.begin() as connection:
         return connection.execute(

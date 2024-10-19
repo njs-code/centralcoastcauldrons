@@ -5,7 +5,7 @@ from src.api import auth
 import sqlalchemy
 from src import database as db
 from src import orders 
-
+from src import planner
 
 router = APIRouter(
     prefix="/bottler",
@@ -52,6 +52,14 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
         print(f"potions delievered: {potions_delivered} order_id: {order_id}")
         return "OK"
 
+class Potion():
+    def __init__(self, brew_num, request_num, sku, type, quantity):
+        self.brew_num = brew_num
+        self.request_num = request_num
+        self.sku = sku
+        self.type = type
+        self.quantity = quantity
+    
 @router.post("/plan")
 def get_bottle_plan():
     """
@@ -61,65 +69,22 @@ def get_bottle_plan():
     # 1) Bottle plan first requires a list of potions to brew, with desired quantities 
     # 2) The goal quantity is the desired amount of potion - quantity already in inventory 
     # 3) The actually quantity requested is the max potions of this type we can brew given the quantity of liquid in inventory 
+    potion_list = []
     with db.engine.begin() as connection:
-        # select volumes of liquids in inventory 
-        global_inventory = connection.execute(sqlalchemy.text("SELECT red, green, blue, dark FROM global_inventory")).fetchall()[0]
-        red_inv = global_inventory.red 
-        green_inv = global_inventory.green
-        blue_inv = global_inventory.blue
-        dark_inv = global_inventory.dark
-
-        # list to return later
-        plan = []
-        
-        # potion list to brew. 
-        # Format is: {type : desired_quantity}
-        potions = connection.execute(sqlalchemy.text("SELECT types, desired_amount FROM potions")).fetchall()
-        potion_list = {}
+        potions = connection.execute(
+            sqlalchemy.text(
+                "SELECT * FROM potions")).fetchall()
         for potion in potions:
-            potion_list[tuple(potion.types)] = potion.desired_amount
-
-        for type, desired_amount in potion_list.items():
-            # select quantity of potion already in inventory 
-            inv_potion_quantity = connection.execute(sqlalchemy.text(f"SELECT quantity FROM potions WHERE types=array{list(type)}")).fetchall()[0].quantity
-            # determine how much of this potion we want to brew
-            brew_num = desired_amount - inv_potion_quantity
-
-            # determine how much we can actually make with inventory volume
-            final_quantity = 0
-            for index in range(0, brew_num):
-                # if not enough in inventory, break
-                if red_inv < type[0]:
-                    break
-                # subtract from inventory
-                red_inv -= type[0] 
-
-                if green_inv < type[1]:
-                    break
-                green_inv -= type[1] 
-
-                if blue_inv < type[2]:
-                    break
-                blue_inv -= type[2] 
-
-                if dark_inv < type[3]:
-                    break
-                dark_inv -= type[3]  
-                final_quantity += 1
-
-            # if we can't make any of this potion, proceed to next potion type
-            if final_quantity == 0:
-                continue
-                
-            #otherwise add to plan
-            request = {
-                "potion_type": type,
-                "quantity": f"{final_quantity}",
-            }
-            plan.append(request)
-        print("Bottle Plan Request: ")
-        print(plan)
-        return plan
+            potion_list.append(Potion(
+                sku=potion.sku,
+                type = potion.types,
+                quantity = potion.quantity,
+                brew_num = potion.desired_amount,
+                request_num = 0
+                ))
+    request =  planner.get_bottle_plan(potion_list)
+    print(request)
+    return request
 
 if __name__ == "__main__":
     print(get_bottle_plan())
