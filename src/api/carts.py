@@ -7,8 +7,6 @@ from src import database as db
 from src import orders 
 from src.api import info
 
-id_counter = 0
-
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],
@@ -93,17 +91,15 @@ def post_visits(visit_id: int, customers: list[Customer]):
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
-    global id_counter
-    id_counter += 1
 
     with db.engine.begin() as connection:
         # Add row to carts table with id, name, and class
         client_class = new_cart.character_class
         client_name = new_cart.customer_name
         client_level = new_cart.level
-        sql_to_execute = f"INSERT INTO current_visitors (cart_id, name, class, level) VALUES ('{id_counter}','{client_name}','{client_class}', '{client_level}')"
-        connection.execute(sqlalchemy.text(sql_to_execute))
-    return {"cart_id": id_counter}
+        sql_to_execute = f"INSERT INTO carts (name, class, level) VALUES ('{client_name}','{client_class}', '{client_level}') RETURNING cart_id"
+        cart_id = connection.execute(sqlalchemy.text(sql_to_execute)).scalar_one()
+    return {"cart_id": cart_id}
 
 
 class CartItem(BaseModel):
@@ -138,8 +134,8 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     # checks out all rows of the given cart_id
     # determines total price from potions database (sku) * quantity
     # updates gold in global inventory
-    # deletes rows from cart_items and current_visitors 
-    # current_visitors and cart_items will be used to update customer database
+    # deletes rows from cart_items and carts 
+    # carts and cart_items will be used to update customer database
     if (orders.validate_order(cart_id)) == False:
         with db.engine.begin() as connection:
             # select cart_item rows corresponding to cart_id
@@ -158,9 +154,9 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             gold_inv = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
             updated_gold = gold_inv + total_price
             connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {updated_gold}"))
-            # delete the client's row from cart_items and current_visitors
+            # delete the client's row from cart_items and carts
             connection.execute(sqlalchemy.text(f"DELETE FROM cart_items WHERE cart_id = {cart_id}"))
-            connection.execute(sqlalchemy.text(f"DELETE FROM current_visitors where cart_id = {cart_id}"))
+            connection.execute(sqlalchemy.text(f"DELETE FROM carts where cart_id = {cart_id}"))
 
         return_statement = {"total_potions_bought": total_quantity, "total_gold_paid": 
                 total_price}
