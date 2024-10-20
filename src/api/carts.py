@@ -112,13 +112,15 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
     with db.engine.begin() as connection:
         # check inventory quantity against requested quantity
-        inv_quantity = connection.execute(sqlalchemy.text(f"SELECT quantity FROM potions WHERE sku = '{item_sku}'")).scalar()
         cart_quantity = cart_item.quantity
+        inv_potions = connection.execute(sqlalchemy.text(f"SELECT quantity, price FROM potions WHERE sku = '{item_sku}'")).fetchall()[0]
+        inv_quantity = inv_potions.quantity
+        cost = (inv_potions.price * cart_quantity)
         if inv_quantity >= cart_quantity:
             # subtract quantity from inventory
             connection.execute(sqlalchemy.text(f"UPDATE potions SET quantity = '{inv_quantity - cart_quantity}' WHERE sku='{item_sku}'"))
             # insert new cart_item row with sku, cart_id, quantity 
-            sql_to_execute = f"INSERT INTO cart_items (cart_id, item_sku, quantity) VALUES ('{cart_id}','{item_sku}','{cart_quantity}')"
+            sql_to_execute = f"INSERT INTO cart_items (cart_id, item_sku, quantity, cost) VALUES ('{cart_id}','{item_sku}','{cart_quantity}', {cost})"
             connection.execute(sqlalchemy.text(sql_to_execute))
             return "OK"
         else:
