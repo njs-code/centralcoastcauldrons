@@ -14,7 +14,11 @@ def get_catalog():
     # post a set number of each?
     catalog = []
     with db.engine.begin() as connection:
-        potion_list = connection.execute(sqlalchemy.text(f"SELECT * FROM potions")).fetchall()
+        potion_list = connection.execute(sqlalchemy.text("""SELECT * 
+                                                         FROM potions 
+                                                         WHERE quantity > 0
+                                                         ORDER BY quantity DESC, price DESC 
+                                                         LIMIT 6""")).fetchall()
         for potion in potion_list:
             # select quantity of potion already in inventory 
             if potion.quantity < 1:
