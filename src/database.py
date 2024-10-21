@@ -52,3 +52,12 @@ def get_gold():
                 """SELECT gold
                 FROM global_inventory"""
                 )).scalar_one()
+    
+def get_budget():
+    with engine.begin() as connection:
+        budget = connection.execute(
+            sqlalchemy.text(
+                """SELECT budget
+                FROM global_inventory"""
+                )).scalar_one()
+    return min(budget, get_gold())

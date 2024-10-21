@@ -5,7 +5,7 @@ import sqlalchemy
 # logic for barrel planning 
 def get_barrel_plan():
     #temporarily, budget is all gold
-    budget = db.get_gold()
+    budget = db.get_budget()
 
     with db.engine.begin() as connection:
         # select largest volume barrels which we can afford
