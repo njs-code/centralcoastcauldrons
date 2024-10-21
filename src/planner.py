@@ -11,7 +11,7 @@ def get_barrel_plan():
         # select largest volume barrels which we can afford
         affordable_barrels = connection.execute(
             sqlalchemy.text(
-                            "SELECT * FROM barrels WHERE price <= :budget ORDER BY volume DESC"),[{"budget":budget}]).fetchall()
+                            "SELECT * FROM barrels WHERE price <= :budget ORDER BY volume DESC, type"),[{"budget":budget}]).fetchall()
         request = []
         # determine if each is still affordable, add to request
         for barrel in affordable_barrels:
