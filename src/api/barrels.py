@@ -22,31 +22,45 @@ class Barrel(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     """ """
-    #Version 2: 
+    #Version 3: 
     #Uses sku, volume, and quantity to update global inventory for each barrel
-    #v3
     # implements order_Id checking and loads order to database
     if (orders.validate_order(order_id)) == False:
         total_price = 0
         with db.engine.begin() as connection:
-            total_quantity=0
+            red=green=blue=dark=total_quantity=0
             for barrel in barrels_delivered:
+                #track for return statement
                 total_quantity += barrel.quantity
                 #determine color from SKU
                 color = barrel.sku.split("_")[1].lower()
                 #determine volume 
                 volume = barrel.ml_per_barrel * barrel.quantity
-                #select volume of liquid already in inventory 
-                inv_volume = connection.execute(sqlalchemy.text(f"SELECT {color} FROM global_inventory")).scalar()
-                #update inventory volume to add new barrel's volume
-                sql_to_execute = f"UPDATE global_inventory SET {color} = '{volume + inv_volume}'"
-                connection.execute(sqlalchemy.text(sql_to_execute))
-                #keep track of price
+                #track ml change
+                if color == 'red':
+                    red += volume
+                elif color =='green':
+                    green += volume
+                elif color =='blue':
+                    blue += volume
+                elif color=='dark':
+                    dark += volume
+                #track price
                 total_price += barrel.price
-            #update global_inventory gold based on price 
-            inv_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-            sql_to_execute = f"UPDATE global_inventory SET gold = '{inv_gold - total_price}'"
-            connection.execute(sqlalchemy.text(sql_to_execute))
+            #update global inventory
+            connection.execute(
+                sqlalchemy.text(
+                    """UPDATE global_inventory SET
+                    red = red + :red, 
+                    green = green + :green,
+                    blue = blue + :blue,
+                    dark = dark + :dark,
+                    gold = gold - :price"""),
+                    [{"red" : red, 
+                      "green":green,
+                      "blue":blue,
+                      "dark":dark,
+                      "price" : total_price}])
         orders.post_order(variety="Barrel", gold_change=-(total_price),order_id=order_id,quantity=total_quantity)
         print(f"barrels delievered: {barrels_delivered} order_id: {order_id}")
         return "OK"

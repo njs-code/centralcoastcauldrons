@@ -142,26 +142,40 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     if (orders.validate_order(cart_id)) == False:
         with db.engine.begin() as connection:
             # select cart_item rows corresponding to cart_id
-            items = connection.execute(sqlalchemy.text(f"SELECT * FROM cart_items WHERE cart_id = {cart_id}")).fetchall()
+            items = connection.execute(
+                sqlalchemy.text(
+                    "SELECT * FROM cart_items WHERE cart_id = :id"),
+                    [{"id":cart_id}]).fetchall()
             total_price = 0
             total_quantity = 0
             # for each item, total the price
             for cart_item in items:
                 item_sku = cart_item.item_sku 
                 quantity = cart_item.quantity
-                price = connection.execute(sqlalchemy.text(f"SELECT price FROM potions WHERE sku = '{item_sku}'")).scalar() * quantity
+                price = connection.execute(
+                    sqlalchemy.text(
+                        "SELECT price FROM potions WHERE sku = :sku"),
+                        [{"sku":item_sku}]
+                        ).scalar_one() * quantity
                 total_quantity += quantity
                 total_price += price
 
             #update inventory gold with price 
-            gold_inv = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-            updated_gold = gold_inv + total_price
-            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {updated_gold}"))
+            connection.execute(
+                sqlalchemy.text("""
+                                UPDATE global_inventory SET
+                                gold = gold + :price"""),
+                                [{"price":total_price}])
             customers.log_checkout(cart_id)
             # delete the client's row from cart_items and carts
-            connection.execute(sqlalchemy.text(f"DELETE FROM cart_items WHERE cart_id = {cart_id}"))
-            connection.execute(sqlalchemy.text(f"DELETE FROM carts where cart_id = {cart_id}"))
-
+            connection.execute(
+                sqlalchemy.text("""
+                                DELETE FROM cart_items 
+                                WHERE cart_id = :id;
+                                
+                                DELETE FROM carts
+                                WHERE cart_id = :id;"""),
+                                [{"id":cart_id}])
         return_statement = {"total_potions_bought": total_quantity, "total_gold_paid": 
                 total_price}
         print(return_statement)

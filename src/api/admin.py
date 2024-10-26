@@ -19,7 +19,7 @@ def reset():
     """
     with db.engine.begin() as connection:
         #update inventory to 0 and gold to 100
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET red=0, green=0, dark=0, blue=0, gold=100"))
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET red=0, green=0, dark=0, blue=0, gold=100, potion_capacity=50, ml_capacity=10000"))
         #update potion quantities to 0
         connection.execute(sqlalchemy.text("UPDATE potions SET quantity = 0, num_sold=0"))
         #clear all cart rows, if any
