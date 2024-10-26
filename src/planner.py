@@ -4,10 +4,17 @@ import sqlalchemy
 
 # logic for barrel planning 
 def get_barrel_plan():
-    #temporarily, budget is all gold
     budget = db.get_budget()
 
     with db.engine.begin() as connection:
+        inventory = connection.execute(
+            sqlalchemy.text
+            ("""SELECT ml_capacity, red, green, blue, dark, budget 
+             FROM global_inventory"""))[0]
+        budget = inventory.budget
+        capacity = inventory.ml_capacity
+        stock = inventory.red + inventory.green + inventory.blue + inventory.dark
+
         # select largest volume barrels which we can afford
         affordable_barrels = connection.execute(
             sqlalchemy.text(
@@ -19,9 +26,9 @@ def get_barrel_plan():
         request = []
         # determine if each is still affordable, add to request
         for barrel in affordable_barrels:
-            if budget - barrel.price < 0:
+            if (budget - barrel.price < 0) or (stock + barrel.volume > capacity):
                 pass
-            elif budget - barrel.price >= 0:
+            else:
                 request.append({
                     "sku": f"{barrel.sku}",
                     "quantity":1 

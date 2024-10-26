@@ -28,12 +28,12 @@ def get_capacity_plan():
     capacity unit costs 1000 gold.
     """
     with db.engine.begin() as connection:
-        gold = connection.execute(sqla.text("""
-                                     SELECT gold 
+        result = connection.execute(sqla.text("""
+                                     SELECT gold, budget
                                      FROM global_inventory
                                      FOR UPDATE
                                      """)).scalar_one()
-        max_requests = gold % 1000
+        max_requests = (result.gold - result.budget) % 1000
         ml_change = potion_change = 0
         #request one of each if possible
         if max_requests > 1:
