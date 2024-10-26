@@ -11,7 +11,11 @@ def get_barrel_plan():
         # select largest volume barrels which we can afford
         affordable_barrels = connection.execute(
             sqlalchemy.text(
-                            "SELECT * FROM barrels WHERE price <= :budget ORDER BY volume DESC, type"),[{"budget":budget}]).fetchall()
+                            """SELECT * 
+                            FROM barrels 
+                            WHERE price <= :budget 
+                            ORDER BY volume DESC, type"""),
+                            [{"budget":budget}]).fetchall()
         request = []
         # determine if each is still affordable, add to request
         for barrel in affordable_barrels:
@@ -74,12 +78,13 @@ def get_bottle_plan(potion_list : list):
         for potion in potion_list:
             type = potion.type
             # Check against inventory 
-            if ((red_inv < type[0] 
-                or green_inv < type[1] 
-                or blue_inv < type[2] 
-                or dark_inv < type[3]) or (
-                    # check if we've reached our desired amount 
-                    potion.request_num >= potion.brew_num)):
+            if ((red_inv < type[0]) or
+                (green_inv < type[1]) or
+                (blue_inv < type[2]) or
+                (dark_inv < type[3]) or
+                # check if we've reached our cap
+                (potion.request_num >= potion.brew_num)):
+                # add to list if requesting any of potion
                 if potion.request_num > 0:
                     request_list.append({
                     "potion_type": potion.type,
