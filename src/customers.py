@@ -11,14 +11,13 @@ def log_checkout(cart_id):
     with db.engine.begin() as connection:
         cart_info = connection.execute(
             sqlalchemy.text("""
-        SELECT * 
-        FROM carts
-        INNER JOIN cart_items
-            ON cart_items.cart_id=carts.cart_id
-        WHERE carts.cart_id=:checkout_id
-        """),
-        [{"checkout_id":cart_id}]
-        ).fetchall()
+                SELECT * 
+                FROM carts
+                INNER JOIN cart_items
+                    ON cart_items.cart_id=carts.cart_id
+                WHERE carts.cart_id=:checkout_id"""),
+                [{"checkout_id":cart_id}]
+                ).fetchall()
         for item in cart_info:
             character_class = item.character_class
             level = item.level
@@ -42,27 +41,22 @@ def log_checkout(cart_id):
                             "class":character_class,
                             "cart_id":cart_id}]
             )
-'''
-def log_visits(new_visits: list[Customer]):
+
+def log_visitors(customers):
+    hour = info.current_hour()
+    day = info.current_day()
     with db.engine.begin() as connection:
-        customers = db.get_table("visits")
-        for customer in new_visits:
-            visits = 0
-            spent = 0
-            fav_type = 0 
-            fav_time = 0
-            fav_day = 0
+        for customer in customers:
+            character_class = customer.character_class
+            level = customer.level
+            name = customer.customer_name
             connection.execute(
-                sqlalchemy.insert(customers),
-                [
-                    {"name": customer.customer_name,
-                    "class":customer.character_class,
-                    "level":customer.level, # cart/barrel order/bottle order id
-                    "num_visits":visits, 
-                    "num_spent":
-                    "fav_type":
-                    "fav_time":
-                    "fav_day":
-                    }
-                ])
-'''
+                sqlalchemy.text("""
+                    INSERT INTO visitor_log 
+                    (day, hour, name, class, level)
+                    VALUES (:day, :hour, :name, :class, :level)
+                    """), [{"name":name, 
+                            "level":level, 
+                            "hour":hour, 
+                            "day":day,
+                            "class":character_class}])

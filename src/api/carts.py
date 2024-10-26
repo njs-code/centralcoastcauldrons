@@ -6,7 +6,7 @@ import sqlalchemy
 from src import database as db
 from src import orders 
 from src.api import info
-from src import customers
+from src import customers as clients
 
 router = APIRouter(
     prefix="/carts",
@@ -81,6 +81,7 @@ def post_visits(visit_id: int, customers: list[Customer]):
     """
     Which customers visited the shop today?
     """
+    clients.log_visitors(customers)
     day = info.current_day()
     print("CURRENT DAY: ")
     print(day)
@@ -166,7 +167,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                                 UPDATE global_inventory SET
                                 gold = gold + :price"""),
                                 [{"price":total_price}])
-            customers.log_checkout(cart_id)
+            clients.log_checkout(cart_id)
             # delete the client's row from cart_items and carts
             connection.execute(
                 sqlalchemy.text("""
