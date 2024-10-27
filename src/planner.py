@@ -10,8 +10,7 @@ def get_barrel_plan():
         inventory = connection.execute(
             sqlalchemy.text
             ("""SELECT ml_capacity, red, green, blue, dark, budget 
-             FROM global_inventory"""))[0]
-        budget = inventory.budget
+             FROM global_inventory""")).fetchall()[0]
         capacity = inventory.ml_capacity
         stock = inventory.red + inventory.green + inventory.blue + inventory.dark
 
