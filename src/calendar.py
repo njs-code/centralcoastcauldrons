@@ -8,14 +8,14 @@ def day_potions():
         result = connection.execute(
             sqlalchemy.text("""
                             WITH top_potions AS (
-                                SELECT type, day, rank, avg
+                                SELECT type, day, rank, day_avg
                                 FROM calendar
-                                WHERE day = :day)
-                            SELECT sku, Coalesce(rank, 0) as rank, exp, types, quantity, name, Coalesce(avg, 0) as avg
+                                WHERE day = 'Arcanaday')
+                            SELECT sku, coalesce(rank,0) as rank, exp, types, quantity, name, Coalesce(day_avg, 0) as avg
                             FROM potions
                             LEFT JOIN top_potions
                                 ON potions.types = top_potions.type
-                                ORDER BY exp DESC, rank DESC"""),
+                            ORDER BY exp DESC, rank DESC"""),
                             [{"day":day}]).fetchall()
         return result
 
