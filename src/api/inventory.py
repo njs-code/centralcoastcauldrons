@@ -32,7 +32,7 @@ def get_capacity_plan():
                                      SELECT gold, budget
                                      FROM global_inventory
                                      FOR UPDATE
-                                     """)).scalar_one()
+                                     """)).fetchall()
         max_requests = (result.gold - result.budget) % 1000
         ml_change = potion_change = 0
         #request one of each if possible
