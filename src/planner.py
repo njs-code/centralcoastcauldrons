@@ -20,7 +20,7 @@ def get_barrel_plan():
                             """SELECT * 
                             FROM barrels 
                             WHERE price <= :budget 
-                            ORDER BY volume DESC, type"""),
+                            ORDER BY volume DESC, type DESC"""),
                             [{"budget":budget}]).fetchall()
         request = []
         # determine if each is still affordable, add to request
