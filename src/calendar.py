@@ -1,0 +1,22 @@
+import sqlalchemy
+from src import database as db
+from src.api import info
+
+def day_potions():
+    day = info.current_day()
+    with db.engine.begin() as connection:
+        result = connection.execute(
+            sqlalchemy.text("""
+                            WITH top_potions AS (
+                                SELECT type, day, rank, avg
+                                FROM calendar
+                                WHERE day = :day)
+                            SELECT sku, Coalesce(rank, 0) as rank, exp, types, quantity, name, Coalesce(avg, 0) as avg
+                            FROM potions
+                            LEFT JOIN top_potions
+                                ON potions.types = top_potions.type
+                                ORDER BY exp DESC, rank DESC"""),
+                            [{"day":day}]).fetchall()
+        return result
+
+

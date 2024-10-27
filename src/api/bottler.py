@@ -4,8 +4,7 @@ from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
 from src import database as db
-from src import orders 
-from src import planner
+from src import orders, planner, calendar
 
 router = APIRouter(
     prefix="/bottler",
@@ -81,15 +80,15 @@ def get_bottle_plan():
     # 3) The actually quantity requested is the max potions of this type we can brew given the quantity of liquid in inventory 
     potion_list = []
     with db.engine.begin() as connection:
-        potions = connection.execute(
-            sqlalchemy.text(
-                "SELECT * FROM potions")).fetchall()
+        potions = calendar.day_potions()
+        print("Calendar Returned: ")
         for potion in potions:
+            print(potion)
             potion_list.append(Potion(
                 sku=potion.sku,
                 type = potion.types,
                 quantity = potion.quantity,
-                brew_num = potion.desired_amount,
+                brew_num = potion.avg + 5,
                 request_num = 0
                 ))
     request =  planner.get_bottle_plan(potion_list)
