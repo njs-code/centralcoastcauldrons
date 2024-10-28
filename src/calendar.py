@@ -6,10 +6,11 @@ def day_potions():
     # get day
     day = info.current_day()
     with db.engine.begin() as connection:
+        print(day)
+        # joins calendar with potions inventory
+        # selects relevent columns for bottle planning
+        # sorts by priority
         result = connection.execute(
-            # joins calendar with potions inventory
-            # selects relevent columns for bottle planning
-            # sorts by priority
             sqlalchemy.text("""
                             WITH top_potions AS (
                                 SELECT type, day, rank, day_avg
