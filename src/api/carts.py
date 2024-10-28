@@ -112,17 +112,35 @@ class CartItem(BaseModel):
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
     with db.engine.begin() as connection:
-        # check inventory quantity against requested quantity
+        #pull price, quantity from inventory for given potion 
+        potion_data = connection.execute(
+            sqlalchemy.text("""
+                            SELECT price, quantity
+                            FROM potions 
+                            WHERE sku = :sku"""),
+                            [{"sku":item_sku}]).fetchall()[0]
+        price = potion_data.price
+        inv_quantity = potion_data.price
+
+        # check inventory quantity against cart
         cart_quantity = cart_item.quantity
-        inv_potions = connection.execute(sqlalchemy.text(f"SELECT quantity, price FROM potions WHERE sku = '{item_sku}'")).fetchall()[0]
-        inv_quantity = inv_potions.quantity
-        cost = (inv_potions.price * cart_quantity)
         if inv_quantity >= cart_quantity:
             # subtract quantity from inventory
-            connection.execute(sqlalchemy.text(f"UPDATE potions SET quantity = '{inv_quantity - cart_quantity}' WHERE sku='{item_sku}'"))
+            connection.execute(
+                sqlalchemy.text("""
+                                UPDATE potions 
+                                SET quantity = quantity - :cart
+                                WHERE sku=:sku
+                                """), 
+                                [{"cart":cart_item.quantity, 
+                                  "sku":item_sku}])
             # insert new cart_item row with sku, cart_id, quantity 
-            sql_to_execute = f"INSERT INTO cart_items (cart_id, item_sku, quantity, cost) VALUES ('{cart_id}','{item_sku}','{cart_quantity}', {cost})"
-            connection.execute(sqlalchemy.text(sql_to_execute))
+            connection.execute(
+                sqlalchemy.text("""
+                                INSERT INTO cart_items (cart_id, item_sku, quantity, cost) 
+                                VALUES (:id, :sku, :quantity, :cost)
+                                """), 
+                                [{"id":cart_id, "sku":item_sku, "quantity":cart_quantity, "cost":price}])
             return "OK"
         else:
             return "Not enough potions in inventory."

@@ -74,10 +74,11 @@ def get_bottle_plan():
     """
     Go from barrel to bottle.
     """
-    # Version 2: 
-    # 1) Bottle plan first requires a list of potions to brew, with desired quantities 
-    # 2) The goal quantity is the desired amount of potion - quantity already in inventory 
-    # 3) The actually quantity requested is the max potions of this type we can brew given the quantity of liquid in inventory 
+    # Version 3: 
+    # 1) Calls calendar to get list of potions for the day
+    # 2) Builds a list of Potion objects
+    # 3) Sends to planner to filter based on inventory
+    # 4) Returns result
     potion_list = []
     with db.engine.begin() as connection:
         potions = calendar.day_potions()

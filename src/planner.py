@@ -77,7 +77,6 @@ def get_bottle_plan(potion_list : list):
     green_inv = db.get_liquid_vol("green")
     blue_inv = db.get_liquid_vol("blue")
     dark_inv = db.get_liquid_vol("dark")
-    #generate list of Potions (brew_num, request_num, etc)
     request_list = []
     while (len(potion_list) > 0):
         # check if enough inventory for another of each potion type 
