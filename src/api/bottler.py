@@ -89,7 +89,7 @@ def get_bottle_plan():
                 sku=potion.sku,
                 type = potion.types,
                 quantity = potion.quantity,
-                brew_num = potion.avg + 1,
+                brew_num = potion.avg + 5,
                 request_num = 0
                 ))
     request =  planner.get_bottle_plan(potion_list)
