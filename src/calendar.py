@@ -20,7 +20,8 @@ def day_potions():
                             FROM potions
                             LEFT JOIN top_potions
                                 ON potions.types = top_potions.type
-                            ORDER BY exp DESC, rank DESC"""),
+                            ORDER BY exp DESC, rank DESC
+                            LIMIT 12"""),
                             [{"day":day}]).fetchall()
         return result
 
