@@ -22,8 +22,8 @@ class Barrel(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     """ """
-    #Version 3: 
-    #Uses sku, volume, and quantity to update global inventory for each barrel
+    #Version 4: 
+    # posts to barrel and gold ledgers
     # implements order_Id checking and loads order to database
     if (orders.validate_order(order_id)) == False:
         total_price = 0
@@ -47,6 +47,42 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                     dark += volume
                 #track price
                 total_price += barrel.price
+
+            #post transaction to orders
+            id = connection.execute(
+                    sqlalchemy.text(
+                        """INSERT INTO orders 
+                            (variety, quantity, gold_change, order_id)
+                            VALUES (:variety, :quantity, :gold_change, :order_id)
+                            RETURNING id
+                            """),
+                    [{"variety" : "Barrel", 
+                      "quantity":total_quantity,
+                      "gold_change":-total_price,
+                      "order_id":order_id}]).scalar_one()
+            #update  barrels ledger
+            connection.execute(
+                    sqlalchemy.text(
+                        """INSERT INTO ledger_barrels 
+                            (order_id, price, red_ml, green_ml, blue_ml, dark_ml)
+                            VALUES (:order_id, :price, :red_ml, :green_ml, :blue_ml, :dark_ml)
+                            """),
+                    [{"order_id" : id, 
+                      "price":total_price,
+                      "red_ml":red,
+                      "green_ml":green,
+                      "blue_ml":blue,
+                      "dark_ml":dark}])
+            #post to gold ledger
+            connection.execute(
+                sqlalchemy.text("""
+                                INSERT INTO ledger_gold
+                                (quantity, order_id)
+                                VALUES (:gold, :id)
+                                """),
+                                [{"id":id,
+                                  "gold":-total_price}]
+            )
             #update global inventory
             connection.execute(
                 sqlalchemy.text(
@@ -61,7 +97,6 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                       "blue":blue,
                       "dark":dark,
                       "price" : total_price}])
-        orders.post_order(variety="Barrel", gold_change=-(total_price),order_id=order_id,quantity=total_quantity)
         print(f"barrels delievered: {barrels_delivered} order_id: {order_id}")
         return "OK"
 

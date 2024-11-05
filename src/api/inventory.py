@@ -29,17 +29,17 @@ def get_capacity_plan():
     """
     with db.engine.begin() as connection:
         result = connection.execute(sqla.text("""
-                                     SELECT gold, budget
+                                     SELECT gold, capacity_budget
                                      FROM global_inventory
                                      FOR UPDATE
                                      """)).fetchall()[0]
-        max_requests = (result.gold - result.budget) // 1000
+        max_requests = min(result.capacity_budget, result.gold) // 1000
         ml_change = potion_change = 0
         #request one of each if possible
-        if max_requests > 1:
+        if max_requests >= 1:
             potion_change = 1
             max_requests-=1
-        if max_requests > 1:
+        if max_requests >= 1:
             ml_change = 1
         cost = (potion_change + ml_change)*1000
         request = {
@@ -47,9 +47,6 @@ def get_capacity_plan():
                 "ml_capacity": ml_change
                 }
         print(request)
-        connection.execute(sqla.text("""UPDATE global_inventory 
-                                        SET gold = gold - :cost"""), 
-                                        [{"cost":cost}])
         return request
 
 class CapacityPurchase(BaseModel):
@@ -73,5 +70,27 @@ def deliver_capacity_plan(capacity_purchase : CapacityPurchase, order_id: int):
                                        "pot_change" : (new_pot*50)}])
     quantity = new_ml + new_pot
     gold_change = quantity * 1000
-    orders.post_order(variety="Capacity", order_id=order_id, gold_change=gold_change, quantity=quantity)
+
+    #post order to orders (transactions) 
+    id = connection.execute(
+        sqla.text(
+            """INSERT INTO orders 
+                (variety, quantity, gold_change, order_id)
+                VALUES (:variety, :quantity, :gold_change, :order_id)
+                RETURNING id
+                """),
+        [{"variety" : "Checkout", 
+        "quantity":quantity,
+        "gold_change":gold_change,
+        "order_id":order_id}]).scalar_one()    
+    #post to gold ledger
+    connection.execute(
+        sqla.text("""
+                INSERT INTO ledger_gold
+                (quantity, order_id)
+                VALUES (:gold, :id)
+                """),
+                [{"id":id,
+                "gold":-(1000*(new_ml+new_pot))}]
+            )
     return "OK"

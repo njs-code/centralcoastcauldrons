@@ -25,9 +25,31 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
     #   update number of potion in potions 
     if (orders.validate_order(order_id)) == False:
         with db.engine.begin() as connection:
+            #post order, returning order's primary id
+            id = connection.execute(
+                    sqlalchemy.text(
+                        """INSERT INTO orders 
+                            (variety, gold_change, order_id)
+                            VALUES (:variety, :gold_change, :order_id)
+                            RETURNING id
+                            """),
+                    [{"variety" : "Bottles", 
+                      "gold_change":0,
+                      "order_id":order_id}]).scalar_one()
+            
+            #calculate volume spent
             red_spent = green_spent = blue_spent = dark_spent = total_quantity = 0
-
             for potion in potions_delivered:
+                #add potion to potion ledger
+                connection.execute(
+                    sqlalchemy.text("""INSERT INTO ledger_potions
+                                    (order_id, type, quantity, sku) 
+                                    VALUES (:id, :type, :quantity, :sku)"""),
+                                    [{"id":id, 
+                                      "type":potion.potion_type, 
+                                      "quantity":potion.quantity,
+                                      "sku":potion.sku}])
+
                 #calculate ml used of each liquid
                 red_spent += potion.potion_type[0] * potion.quantity 
                 green_spent += potion.potion_type[1] * potion.quantity 
@@ -57,7 +79,31 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
                                   "green": green_spent,
                                   "blue":blue_spent,
                                   "dark":dark_spent}])
-        orders.post_order(variety="Bottles",gold_change=0,order_id=order_id,quantity=total_quantity)
+            
+            #update barrels ledger
+            connection.execute(
+                    sqlalchemy.text(
+                        """INSERT INTO ledger_barrels 
+                            (order_id, price, red_ml, green_ml, blue_ml, dark_ml)
+                            VALUES (:order_id, :price, :red_ml, :green_ml, :blue_ml, :dark_ml)
+                            """),
+                    [{"order_id" : id, 
+                      "price":0,
+                      "red_ml":-red_spent,
+                      "green_ml":-green_spent,
+                      "blue_ml":-blue_spent,
+                      "dark_ml":-dark_spent}])
+            
+            #post gold ledger
+            connection.execute(
+                sqlalchemy.text("""
+                                INSERT INTO ledger_gold
+                                (quantity, order_id)
+                                VALUES (:gold, :id)
+                                """),
+                                [{"id":id,
+                                  "gold":0}]
+            )
         print(f"potions delievered: {potions_delivered} order_id: {order_id}")
         return "OK"
 

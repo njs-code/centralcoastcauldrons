@@ -141,6 +141,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
                                 VALUES (:id, :sku, :quantity, :cost)
                                 """), 
                                 [{"id":cart_id, "sku":item_sku, "quantity":cart_quantity, "cost":price}])
+            
             return "OK"
         else:
             return "Not enough potions in inventory."
@@ -167,24 +168,60 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                     [{"id":cart_id}]).fetchall()
             total_price = 0
             total_quantity = 0
-            # for each item, total the price
+
+            #post order to orders (transactions) 
+            id = connection.execute(
+                    sqlalchemy.text(
+                        """INSERT INTO orders 
+                            (variety, quantity, gold_change, order_id)
+                            VALUES (:variety, :quantity, :gold_change, :order_id)
+                            RETURNING id
+                            """),
+                    [{"variety" : "Checkout", 
+                      "quantity":total_quantity,
+                      "gold_change":total_price,
+                      "order_id":cart_id}]).scalar_one()
+
+            # for each item, total the price and retrieve relevant info
             for cart_item in items:
                 item_sku = cart_item.item_sku 
                 quantity = cart_item.quantity
-                price = connection.execute(
+                potion_info = connection.execute(
                     sqlalchemy.text(
-                        "SELECT price FROM potions WHERE sku = :sku"),
+                        "SELECT price, types FROM potions WHERE sku = :sku"),
                         [{"sku":item_sku}]
-                        ).scalar_one() * quantity
+                        ).fetchall()[0]
+                price = potion_info.price * quantity
                 total_quantity += quantity
                 total_price += price
 
+                #post item to potion ledger
+                connection.execute(
+                    sqlalchemy.text(
+                        """INSERT INTO ledger_potions
+                                    (order_id, type, quantity, sku) 
+                                    VALUES (:id, :type, :quantity, :sku)"""),
+                                    [{"id":id, 
+                                      "type":potion_info.types, 
+                                      "quantity":quantity,
+                                      "sku":item_sku}])
+            #post to gold ledger
+            connection.execute(
+                sqlalchemy.text("""
+                                INSERT INTO ledger_gold
+                                (quantity, order_id)
+                                VALUES (:gold, :id)
+                                """),
+                                [{"id":id,
+                                  "gold":total_price}]
+            )
             #update inventory gold with price 
             connection.execute(
                 sqlalchemy.text("""
                                 UPDATE global_inventory SET
                                 gold = gold + :price"""),
                                 [{"price":total_price}])
+            #log customer/item data
             clients.log_checkout(cart_id)
             # delete the client's row from cart_items and carts
             connection.execute(
@@ -198,5 +235,5 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         return_statement = {"total_potions_bought": total_quantity, "total_gold_paid": 
                 total_price}
         print(return_statement)
-        orders.post_order(variety="Checkout",gold_change=total_price,order_id=cart_id,quantity=total_quantity)
+        #orders.post_order(variety="Checkout",gold_change=total_price,order_id=cart_id,quantity=total_quantity)
         return return_statement
