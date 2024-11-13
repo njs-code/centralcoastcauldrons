@@ -45,7 +45,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
                     sqlalchemy.text("""INSERT INTO ledger_potions
                                     (order_id, type, quantity, price, sku, name)
                                     VALUES 
-                                    (:id, :type, :quantity, 0
+                                    (:id, :type, :quantity, 0,
                                     (SELECT sku FROM potions WHERE types = :type), 
                                     'The Gnomes')"""),
                                     [{"id":id, 
