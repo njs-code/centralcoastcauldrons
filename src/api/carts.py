@@ -32,6 +32,13 @@ def search_orders(
     sort_col: search_sort_options = search_sort_options.timestamp,
     sort_order: search_sort_order = search_sort_order.desc,
 ):
+    print("user input: ")
+    print(customer_name)
+    print(potion_sku)
+    print(search_page)
+    print(sort_order)
+    print(sort_col)
+
     """
     Search for cart line items by customer name and/or potion sku.
 
@@ -56,20 +63,63 @@ def search_orders(
     Your results must be paginated, the max results you can return at any
     time is 5 total line items.
     """
+    metadata_obj = sqlalchemy.MetaData()
+    ledger = sqlalchemy.Table("ledger_potions", metadata_obj, autoload_with=db.engine)
+    
+    #determine order type
+    if sort_col == "customer_name":
+        order_by = ledger.c.name
+    elif sort_col == "item_sku":
+        order_by = ledger.c.sku
+    elif sort_col == "line_item_total":
+        order_by = ledger.c.price
+    elif sort_col == "timestamp":
+        order_by = ledger.c.timestamp
+    else:
+        assert False
+
+    stmt = sqlalchemy.select(
+        ledger.c.id,
+        ledger.c.sku,
+        ledger.c.name,
+        ledger.c.price,
+        ledger.c.timestamp
+    ).limit(5).offset(0).order_by(order_by, ledger.c.id)
+
+    if customer_name != "":
+        stmt = stmt.where(ledger.c.name.ilike(f"%{customer_name}%"))
+    if potion_sku != "":
+        stmt = stmt.where(ledger.c.sku.ilike(f"%{potion_sku}%"))
+
+    with db.engine.begin() as connection:
+        result = connection.execute(stmt)
+    json = []
+    for row in result:
+        json.append({
+                "line_item_id": row.id,
+                "item_sku": row.sku,
+                "customer_name": row.name,
+                "line_item_total": row.price,
+                "timestamp": row.timestamp})
 
     return {
-        "previous": "",
-        "next": "",
-        "results": [
-            {
-                "line_item_id": 1,
-                "item_sku": "1 oblivion potion",
-                "customer_name": "Scaramouche",
-                "line_item_total": 50,
-                "timestamp": "2021-01-01T00:00:00Z",
-            }
-        ],
+        "previous":"",
+        "next":"",
+        "results":json
     }
+#    return {
+#        "previous": "",
+#        "next": "",
+#        "results": [
+#            {
+#                "line_item_id": 1,
+#                "item_sku": "1 oblivion potion",
+#                "customer_name": "Scaramouche",
+#                "line_item_total": 50,
+#                "timestamp": "2021-01-01T00:00:00Z",
+#            }
+#        ],
+#    }
 
 class Customer(BaseModel):
     customer_name: str
@@ -170,7 +220,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             total_quantity = 0
 
             #post order to orders (transactions) 
-            id = connection.execute(
+            order_id = connection.execute(
                     sqlalchemy.text(
                         """INSERT INTO orders 
                             (variety, quantity, gold_change, order_id)
@@ -196,15 +246,21 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 total_price += price
 
                 #post item to potion ledger
+                name = connection.execute(
+                    sqlalchemy.text("""SELECT name FROM carts WHERE cart_id = :id"""),
+                    [{"id":cart_id}]
+                ).scalar_one()
                 connection.execute(
                     sqlalchemy.text(
                         """INSERT INTO ledger_potions
-                                    (order_id, type, quantity, sku) 
-                                    VALUES (:id, :type, :quantity, :sku)"""),
-                                    [{"id":id, 
+                                    (order_id, type, quantity, price, sku, name) 
+                                    VALUES (:order_id, :type, :quantity, :price, :sku, (SELECT name FROM carts WHERE cart_id = :cart_id))"""),
+                                    [{"order_id":order_id, 
                                       "type":potion_info.types, 
                                       "quantity":quantity,
-                                      "sku":item_sku}])
+                                      "price":price,
+                                      "sku":item_sku,
+                                      "cart_id":cart_id}])
             #post to gold ledger
             connection.execute(
                 sqlalchemy.text("""
@@ -212,7 +268,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                                 (quantity, order_id)
                                 VALUES (:gold, :id)
                                 """),
-                                [{"id":id,
+                                [{"id":order_id,
                                   "gold":total_price}]
             )
             #update inventory gold with price 

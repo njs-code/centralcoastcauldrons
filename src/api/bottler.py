@@ -43,12 +43,15 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
                 #add potion to potion ledger
                 connection.execute(
                     sqlalchemy.text("""INSERT INTO ledger_potions
-                                    (order_id, type, quantity, sku) 
-                                    VALUES (:id, :type, :quantity, :sku)"""),
+                                    (order_id, type, quantity, price, sku, name)
+                                    VALUES 
+                                    (:id, :type, :quantity, 0
+                                    (SELECT sku FROM potions WHERE types = :type), 
+                                    'The Gnomes')"""),
                                     [{"id":id, 
                                       "type":potion.potion_type, 
-                                      "quantity":potion.quantity,
-                                      "sku":potion.sku}])
+                                      "quantity":potion.quantity
+                                      }])
 
                 #calculate ml used of each liquid
                 red_spent += potion.potion_type[0] * potion.quantity 

@@ -60,6 +60,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                       "quantity":total_quantity,
                       "gold_change":-total_price,
                       "order_id":order_id}]).scalar_one()
+            
             #update  barrels ledger
             connection.execute(
                     sqlalchemy.text(
@@ -73,6 +74,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                       "green_ml":green,
                       "blue_ml":blue,
                       "dark_ml":dark}])
+            
             #post to gold ledger
             connection.execute(
                 sqlalchemy.text("""
