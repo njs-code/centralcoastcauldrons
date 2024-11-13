@@ -28,16 +28,10 @@ class search_sort_order(str, Enum):
 def search_orders(
     customer_name: str = "",
     potion_sku: str = "",
-    search_page: str = "",
+    search_page: str = "0",
     sort_col: search_sort_options = search_sort_options.timestamp,
     sort_order: search_sort_order = search_sort_order.desc,
 ):
-    print("user input: ")
-    print(customer_name)
-    print(potion_sku)
-    print(search_page)
-    print(sort_order)
-    print(sort_col)
 
     """
     Search for cart line items by customer name and/or potion sku.
@@ -63,6 +57,8 @@ def search_orders(
     Your results must be paginated, the max results you can return at any
     time is 5 total line items.
     """
+
+    print(f"searching for {customer_name}, {potion_sku}, page: {search_page}, search: {search_orders}, sort: {sort_col}")
     metadata_obj = sqlalchemy.MetaData()
     ledger = sqlalchemy.Table("ledger_potions", metadata_obj, autoload_with=db.engine)
     
@@ -78,48 +74,62 @@ def search_orders(
     else:
         assert False
 
+    #determine offset from page
+    offset = int(search_page) * 5
+
+    #collect relevant columns
     stmt = sqlalchemy.select(
         ledger.c.id,
         ledger.c.sku,
         ledger.c.name,
         ledger.c.price,
         ledger.c.timestamp
-    ).limit(5).offset(0).order_by(order_by, ledger.c.id)
+    ).limit(6).offset(offset)
 
+    #filter out ledger bottle deliveries
+    stmt = stmt.filter(ledger.c.name != "The Gnomes")
+
+    #filter with name and sku
     if customer_name != "":
         stmt = stmt.where(ledger.c.name.ilike(f"%{customer_name}%"))
     if potion_sku != "":
         stmt = stmt.where(ledger.c.sku.ilike(f"%{potion_sku}%"))
 
     with db.engine.begin() as connection:
-        result = connection.execute(stmt)
+         #determine ordering
+        if sort_order == "asc":
+            result = connection.execute(stmt.order_by(order_by.asc())).fetchall()
+        else:
+            result = connection.execute(stmt.order_by(order_by.desc())).fetchall()
+    
     json = []
     for row in result:
+        #page size
+        if len(json) >= 5:
+            break
         json.append({
                 "line_item_id": row.id,
                 "item_sku": row.sku,
                 "customer_name": row.name,
                 "line_item_total": row.price,
                 "timestamp": row.timestamp})
+    #next page determined from limit 
+    if len(result) > 5:
+        next = 1 + int(search_page)
+    else:
+        next = ""
+    #previous page determined from offset
+    if (offset >= 5):
+        previous = int(search_page) - 1
+    else: 
+        previous = ""
 
     return {
-        "previous":"",
-        "next":"",
+        "previous":str(previous),
+        "next":str(next),
         "results":json
     }
-#    return {
-#        "previous": "",
-#        "next": "",
-#        "results": [
-#            {
-#                "line_item_id": 1,
-#                "item_sku": "1 oblivion potion",
-#                "customer_name": "Scaramouche",
-#                "line_item_total": 50,
-#                "timestamp": "2021-01-01T00:00:00Z",
-#            }
-#        ],
-#    }
+
 
 class Customer(BaseModel):
     customer_name: str
